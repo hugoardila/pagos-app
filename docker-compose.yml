@@ -1,0 +1,16 @@
+services:
+  pagos-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pagos-app
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PAGOS_APP_DB_HOST: ${PAGOS_APP_DB_HOST:?set in .env}
+      PAGOS_APP_DB_NAME: ${PAGOS_APP_DB_NAME:?set in .env}
+      PAGOS_APP_DB_USER: ${PAGOS_APP_DB_USER:?set in .env}
+      PAGOS_APP_DB_PASS: ${PAGOS_APP_DB_PASS:?set in .env}
+      TZ: America/Bogota
+    volumes:
+      - ./app:/var/www/html

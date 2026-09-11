@@ -1,0 +1,222 @@
+<?php
+session_start();
+if (!isset($_SESSION['usuario_id'])) {
+    header("Location: login.php");
+    exit();
+}
+
+include '../includes/conexion.php';
+
+// Obtener sedes
+$sedes = [];
+$res = $conexion->query("SELECT * FROM sedes");
+while ($row = $res->fetch_assoc()) {
+    $sedes[] = $row;
+}
+
+// Filtros
+$anio = isset($_GET['anio']) ? intval($_GET['anio']) : date('Y');
+$id_sede = isset($_GET['id_sede']) ? intval($_GET['id_sede']) : '';
+
+// Consulta
+$where = "YEAR(g.fecha) = $anio";
+if ($id_sede !== '') {
+    $where .= " AND g.id_sede = $id_sede";
+}
+
+$query = "
+  SELECT 
+    MONTH(g.fecha) AS mes,
+    YEAR(g.fecha) AS anio,
+    SUM(g.monto) AS total,
+    s.nombre AS sede
+  FROM gastos_oficina g
+  JOIN sedes s ON g.id_sede = s.id
+  WHERE $where
+  GROUP BY MONTH(g.fecha), g.id_sede
+  ORDER BY mes DESC
+";
+
+$gastos = $conexion->query($query);
+?>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gastos Mensuales</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        .navbar-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 15px 0;
+            margin-bottom: 30px;
+        }
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+        }
+        .page-header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }
+        .page-header h2 {
+            color: #2d3748;
+            font-weight: 700;
+            margin: 0;
+        }
+        .filter-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }
+        .form-control, .form-select {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 10px 15px;
+            transition: all 0.3s ease;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+        }
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }
+        .table thead {
+            background: linear-gradient(135deg, #ef476f 0%, #d62828 100%);
+            color: white;
+        }
+        .table thead th {
+            padding: 15px;
+            font-weight: 600;
+            border: none;
+        }
+        .table tbody td {
+            padding: 15px;
+        }
+        .table tbody tr:hover {
+            background: #fff5f5;
+        }
+        .btn-back {
+            background: #6c757d;
+            border: none;
+            color: white;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-custom">
+        <div class="container-fluid px-4">
+            <a href="../index.php" style="text-decoration: none; color: white; font-size: 24px; font-weight: 700;">
+                <i class="fas fa-money-check-alt"></i> Pagos App
+            </a>
+            <span style="color: white;">
+                <i class="fas fa-user-circle"></i> <?php echo $_SESSION['usuario_nombre']; ?>
+            </span>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <div class="page-header">
+            <h2><i class="fas fa-file-invoice-dollar"></i> Gastos Mensuales</h2>
+        </div>
+
+        <div class="filter-card">
+            <h5 style="margin-bottom: 20px; color: #2d3748; font-weight: 600;">
+                <i class="fas fa-filter"></i> Filtros
+            </h5>
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label" style="font-weight: 600;">
+                        <i class="fas fa-calendar-alt"></i> Año
+                    </label>
+                    <select name="anio" class="form-select" onchange="this.form.submit()">
+                        <?php for ($i = date('Y'); $i >= 2020; $i--): ?>
+                            <option value="<?= $i ?>" <?= $anio == $i ? 'selected' : '' ?>><?= $i ?></option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="font-weight: 600;">
+                        <i class="fas fa-building"></i> Sede
+                    </label>
+                    <select name="id_sede" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todas</option>
+                        <?php foreach ($sedes as $s): ?>
+                            <option value="<?= $s['id'] ?>" <?= $id_sede == $s['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($s['nombre']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-calendar"></i> Mes</th>
+                        <th><i class="fas fa-calendar-alt"></i> Año</th>
+                        <th><i class="fas fa-dollar-sign"></i> Total Gastado</th>
+                        <th><i class="fas fa-building"></i> Sede</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($gastos->num_rows > 0): ?>
+                        <?php while ($g = $gastos->fetch_assoc()): ?>
+                            <tr>
+                                <td><strong><?= date('F', mktime(0, 0, 0, $g['mes'], 1)) ?></strong></td>
+                                <td><?= $g['anio'] ?></td>
+                                <td style="color: #ef476f; font-weight: 700; font-size: 16px;">
+                                    $<?= number_format($g['total'], 0, ',', '.') ?>
+                                </td>
+                                <td><?= htmlspecialchars($g['sede']) ?></td>
+                            </tr>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 40px; color: #718096;">
+                                <i class="fas fa-inbox fa-3x" style="margin-bottom: 15px; opacity: 0.3;"></i>
+                                <p style="margin: 0;">No hay datos para mostrar</p>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="informes.php" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+data/
+uploads/
+logs/
+tmp/
+backups/
+vendor/
+app/vendor/
+*.log
+*.bak*
